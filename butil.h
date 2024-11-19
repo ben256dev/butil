@@ -1,5 +1,7 @@
 #pragma once
 
+#include <errno.h>
+
 #define die(fmt, ...) \
     do { \
         fflush(stdout); \
