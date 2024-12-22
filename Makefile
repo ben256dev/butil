@@ -1,19 +1,45 @@
 .PHONY: default
 default: install
 
-.PHONY: install
-install:
+# Detect platform
+OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+ifeq ($(findstring mingw,$(OS)),mingw)
+    PLATFORM = windows
+else ifeq ($(OS),linux)
+    PLATFORM = linux
+else
+    $(error Unsupported OS: $(OS))
+endif
+
+# Platform-specific commands
+ifeq ($(PLATFORM),linux)
+    PREFIX = /usr
+    INSTALL_CMD = sudo cp
+    MKDIR_CMD = sudo mkdir -p
+    RM_CMD = sudo rm -rf
+else ifeq ($(PLATFORM),windows)
+    PREFIX = /c/ProgramFiles
+    INSTALL_CMD = cp
+    MKDIR_CMD = mkdir -p
+    RM_CMD = rm -rf
+endif
+
+.PHONY: build
+build:
 	@gcc -fPIC -c butil.c -o butil.o
-	@gcc -shared -o libbutil.so butil.o
-	@sudo mkdir -p /usr/include/butil
-	@sudo cp butil.h /usr/include/butil
-	@sudo cp libbutil.so /usr/lib
+	@ar rcs libbutil.a butil.o
+
+.PHONY: install
+install: build
+	@$(MKDIR_CMD) $(PREFIX)/include/butil
+	@$(INSTALL_CMD) butil.h $(PREFIX)/include/butil
+	@$(INSTALL_CMD) libbutil.a $(PREFIX)/lib
 
 .PHONY: uninstall
 uninstall:
-	@sudo rm -rf /usr/include/butil
-	@sudo rm -f /usr/lib/libbutil.so
+	@$(RM_CMD) $(PREFIX)/include/butil
+	@$(RM_CMD) $(PREFIX)/lib/libbutil.a
 
 .PHONY: clean
 clean:
-	@rm butil.o libbutil.so
+	@rm -f butil.o libbutil.a

@@ -14,6 +14,13 @@ __attribute__((nonnull(1))) void* xrealloc(void* ptr, size_t size)
       pdie("realloc(%zu)", size);
    return ptrn;
 }
+void* xcalloc(size_t num, size_t size)
+{
+   void* ptrn = calloc(num, size);
+   if (ptrn == NULL)
+      pdie("calloc(%zu)", size);
+   return ptrn;
+}
 FILE* xfopen(const char* file_path, const char* mode)
 {
    FILE* fd = fopen(file_path, mode);

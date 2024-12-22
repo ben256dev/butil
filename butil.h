@@ -7,6 +7,12 @@
 #include <limits.h>
 #include <errno.h>
 
+#define cry(fmt, ...) \
+    do { \
+        fflush(stdout); \
+        fprintf(stderr, "%s:%d \x1b[1;31merror: %s(): \x1b[0m" fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+    } while (0)
+
 #define die(fmt, ...) \
     do { \
         fflush(stdout); \
@@ -23,4 +29,5 @@
 
 void* xmalloc(size_t size);
 __attribute__((nonnull(1))) void* xrealloc(void* ptr, size_t size);
+void* xcalloc(size_t num, size_t size);
 FILE* xfopen(const char* file_path, const char* mode);
