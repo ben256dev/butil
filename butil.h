@@ -31,3 +31,4 @@ void* xmalloc(size_t size);
 __attribute__((nonnull(1))) void* xrealloc(void* ptr, size_t size);
 void* xcalloc(size_t num, size_t size);
 FILE* xfopen(const char* file_path, const char* mode);
+char* xmfopen(const char* file_path);

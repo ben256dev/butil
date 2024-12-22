@@ -18,7 +18,7 @@ ifeq ($(PLATFORM),linux)
     MKDIR_CMD = sudo mkdir -p
     RM_CMD = sudo rm -rf
 else ifeq ($(PLATFORM),windows)
-    PREFIX = /c/ProgramFiles
+    PREFIX = /c
     INSTALL_CMD = cp
     MKDIR_CMD = mkdir -p
     RM_CMD = rm -rf
@@ -33,6 +33,7 @@ build:
 install: build
 	@$(MKDIR_CMD) $(PREFIX)/include/butil
 	@$(INSTALL_CMD) butil.h $(PREFIX)/include/butil
+	@$(INSTALL_CMD) bstack.h $(PREFIX)/include/butil
 	@$(INSTALL_CMD) libbutil.a $(PREFIX)/lib
 
 .PHONY: uninstall

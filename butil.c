@@ -28,3 +28,19 @@ FILE* xfopen(const char* file_path, const char* mode)
       pdie("fopen(%s, %s)", file_path, mode);
    return fd;
 }
+char* xmfopen(const char* file_path)
+{
+    FILE* fd = xfopen(file_path, "r");
+
+    fseek(fd, 0, SEEK_END);
+    size_t size = ftell(fd);
+    rewind(fd);
+
+    char* buff = xmalloc(size + 1);
+    fread(buff, 1, size, fd);
+
+    buff[size] = '\0';
+    fclose(fd);
+
+    return buff;
+}
