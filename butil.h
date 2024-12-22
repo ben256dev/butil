@@ -11,7 +11,7 @@
     do { \
         fflush(stdout); \
         fprintf(stderr, "%s:%d \x1b[1;31merror: %s(): \x1b[0m" fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
-        exit(-1); \
+        exit(EXIT_FAILURE); \
     } while (0)
 
 #define pdie(fmt, ...) \
