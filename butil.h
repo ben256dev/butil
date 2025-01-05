@@ -53,3 +53,18 @@ __attribute__((nonnull(1))) void* xrealloc(void* ptr, size_t size);
 void* xcalloc(size_t num, size_t size);
 FILE* xfopen(const char* file_path, const char* mode);
 char* xmfopen(const char* file_path);
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#define wdie(fmt, ...) \
+    do { \
+        fflush(stdout); \
+        char err_msg[256]; \
+        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, \
+                       NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), \
+                       err_msg, sizeof(err_msg), NULL); \
+        fprintf(stderr, "%s:%d \x1b[1;31merror: %s(): " fmt ": \x1b[0m%s\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__, err_msg); \
+        exit(EXIT_FAILURE); \
+    } while (0)
+#endif
