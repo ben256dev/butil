@@ -26,7 +26,7 @@ endif
 
 .PHONY: build
 build:
-	@gcc -fPIC -c butil.c -o butil.o
+	@gcc -fPIC -g -c butil.c -o butil.o
 	@ar rcs libbutil.a butil.o
 
 .PHONY: install
@@ -40,6 +40,9 @@ install: build
 uninstall:
 	@$(RM_CMD) $(PREFIX)/include/butil
 	@$(RM_CMD) $(PREFIX)/lib/libbutil.a
+
+.PHONY: reinstall
+reinstall: clean uninstall install
 
 .PHONY: clean
 clean:
