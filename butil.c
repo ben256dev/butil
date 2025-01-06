@@ -47,10 +47,11 @@ char* xmfopen(const char* file_path)
 #ifdef _WIN32
 BSHM bshm_open(const char* name, i64 bytes, const char* mode)
 {
+    HANDLE shm_fd;
     if (strcmp(mode, "r") == 0)
     {
         int i = 0;
-        do shm_fd = OpenFileMapping(FILE_MAP_READ, FALSE, SHM_NAME), i++;
+        do shm_fd = OpenFileMapping(FILE_MAP_READ, FALSE, name), i++;
         while (i < BSHM_MAX_TRIES && shm_fd == NULL && GetLastError() == ERROR_FILE_NOT_FOUND);
     }
     else
@@ -66,7 +67,7 @@ BSHM xshm_open(const char* name, i64 bytes, const char* mode)
 
     return (BSHM)(shm_fd);
 }
-void* xmmap(int fd, size_t bytes, const char* mode)
+void* xmmap(BSHM fd, size_t bytes, const char* mode)
 {
     DWORD prot;
     if (strcmp(mode, "r") == 0)
@@ -79,22 +80,16 @@ void* xmmap(int fd, size_t bytes, const char* mode)
     void* mem_ptr = MapViewOfFile(fd, prot, 0, 0, bytes);
     if (mem_ptr == NULL)
         wdie("MapViewOfFile");
-}
-BSEM* xsem_open(const char* name, const char* mode)
-{
-    DWORD prot;
-    if (strcmp(mode, "r") == 0)
-        prot = SEMAPHORE_READ;
-    else if (strcmp(mode, "w") == 0)
-        prot = SEMAPHORE_WRITE;
-    else
-        prot = SEMAPHORE_ALL_ACCESS;
 
+    return mem_ptr;
+}
+BSEM xsem_open(const char* name, const char* mode)
+{
     HANDLE sem;
-    if (prot == SEMAPHORE_READ)
+    if (strcmp(mode, "r") == 0)
     {
         int i = 0;
-        do sem = OpenSemaphore(prot, FALSE, name), i++;
+        do sem = OpenSemaphore(READ_CONTROL, FALSE, name), i++;
         while (i < BSEM_MAX_TRIES && sem == NULL && GetLastError() == ERROR_FILE_NOT_FOUND);
     }
     else
@@ -103,31 +98,32 @@ BSEM* xsem_open(const char* name, const char* mode)
     if (sem == NULL)
         wdie("OpenSemaphore");
 
-    return (BSEM*)(sem_ptr);
+    return (BSEM)(sem);
 }
-void bsem_post(BSEM* sem_ptr)
+void bsem_post(BSEM sem_ptr)
 {
-    ReleaseSemaphore(*sem_ptr, 1, NULL);
+    ReleaseSemaphore(sem_ptr, 1, NULL);
 }
-void xsem_wait(BSEM* sem_ptr)
+void xsem_wait(BSEM sem_ptr)
 {
-    WaitForSingleObject(*sem_ptr, INFINITE);
+    if (WaitForSingleObject(sem_ptr, INFINITE) == WAIT_FAILED)
+        wdie("WaitForSingleObject");
 }
 void bsleep(u32 seconds)
 {
-    Sleep(seconds / 1000);
+    Sleep(seconds * 1000);
 }
 void xmunmap(void* addr, size_t bytes)
 {
-    UnmapViewOfFile(state_ptr);
+    UnmapViewOfFile(addr);
 }
 void xclose(BSHM shm_fd, const char* name)
 {
     CloseHandle(shm_fd);
 }
-void xsem_close(BSEM* sem_ptr, const char* name)
+void xsem_close(BSEM sem_ptr, const char* name)
 {
-    CloseHandle(*sem_ptr);
+    CloseHandle(sem_ptr);
 }
 #else
 BSHM bshm_open(const char* name, i64 bytes, const char* mode)
@@ -156,7 +152,7 @@ BSHM xshm_open(const char* name, i64 bytes, const char* mode)
 
     return (BSHM)(shm_fd);
 }
-void* xmmap(int fd, size_t bytes, const char* mode)
+void* xmmap(BSHM fd, size_t bytes, const char* mode)
 {
     int prot;
     if (strcmp(mode, "r") == 0)
@@ -174,7 +170,7 @@ void* xmmap(int fd, size_t bytes, const char* mode)
     if (mem_ptr == MAP_FAILED)
         pdie("mmap");
 }
-BSEM* xsem_open(const char* name, const char* mode)
+BSEM xsem_open(const char* name, const char* mode)
 {
     sem_t* sem_ptr;
     if (strcmp(mode, "r") == 0)
@@ -189,13 +185,13 @@ BSEM* xsem_open(const char* name, const char* mode)
     if (sem_ptr == SEM_FAILED)
         pdie("sem_open");
 
-    return (BSEM*)(sem_ptr);
+    return (BSEM)(sem_ptr);
 }
-void bsem_post(BSEM* sem_ptr)
+void bsem_post(BSEM sem_ptr)
 {
     sem_post(sem_ptr);
 }
-void xsem_wait(BSEM* sem_ptr)
+void xsem_wait(BSEM sem_ptr)
 {
     if (sem_wait(sem_ptr) == -1)
         pdie("sem_wait");
@@ -216,7 +212,7 @@ void xclose(BSHM shm_fd, const char* name)
     if (close(shm_fd) == -1)
         pdie("close");
 }
-void xsem_close(BSEM* sem_ptr, const char* name)
+void xsem_close(BSEM sem_ptr, const char* name)
 {
     sem_close(sem_ptr);
     sem_unlink(name);
