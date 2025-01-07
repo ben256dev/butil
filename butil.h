@@ -77,29 +77,4 @@ char* xmfopen(const char* file_path);
         fprintf(stderr, "%s:%d \x1b[1;31merror: %s(): " fmt ": \x1b[0m%s\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__, err_msg); \
         exit(EXIT_FAILURE); \
     } while (0)
-#include <tchar.h>
-typedef HANDLE BSHM;
-typedef HANDLE BSEM;
-
-#else //POSIX
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <semaphore.h>
-typedef int BSHM;
-typedef sem_t* BSEM;
 #endif
-
-#define BSHM_MAX_TRIES 128
-#define BSEM_MAX_TRIES 128
-BSHM bshm_open(const char* name, i64 bytes, const char* mode);
-BSHM xshm_open(const char* name, i64 bytes, const char* mode);
-void* xmmap(BSHM fd, size_t bytes, const char* mode);
-BSEM xsem_open(const char* name, const char* mode);
-void bsem_post(BSEM sem_ptr);
-void xsem_wait(BSEM sem_ptr);
-void bsleep(u32 seconds);
-void xmunmap(void* addr, size_t bytes);
-void xclose(BSHM shm_fd, const char* name);
-void xsem_close(BSEM sem_ptr, const char* name);
