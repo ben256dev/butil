@@ -1,3 +1,4 @@
 butil.o
 libbutil.so
 libbutil.a
+test/main
