@@ -111,7 +111,18 @@ typedef struct {
 #define array_header(a) ((Array_Header *)(a) - 1)
 #define array_length(a) (array_header(a)->length)
 #define array_capacity(a) (array_header(a)->capacity)
-#define array_remove(a, i) do { \
+#define array_remove_unordered(a, i) do { \
+    Array_Header *h = array_header(a); \
+    if (i == h->length - 1) { \
+        h->length -= 1; \
+    } else if (h->length > 1) { \
+        void *ptr = &a[i]; \
+        void *last = &a[h->length - 1]; \
+        h->length -= 1; \
+        memcpy(ptr, last, sizeof(*a)); \
+    } \
+} while (0);
+#define array_remove_unordered(a, i) do { \
     Array_Header *h = array_header(a); \
     if (i == h->length - 1) { \
         h->length -= 1; \
@@ -128,6 +139,18 @@ typedef struct {
 	(a) = (array_ensure_capacity)(a, 1, sizeof(v)), \
 	(a)[array_header(a)->length] = (v), \
 	&(a)[array_header(a)->length++])
+
+#define array_foreach(Type, el, array) for (float *it = array, el = *array; it < array + array_length(array) && (el = *it, 1); ++it)
+
+#define array_remove(a, i) do { \
+    Array_Header *h = array_header(a); \
+    size_t _i = (i); \
+    if (h->length == 0 || _i >= h->length) break; \
+    if (_i != h->length - 1) { \
+        memmove(&(a)[_i], &(a)[_i + 1], (h->length - _i - 1) * sizeof(*(a))); \
+    } \
+    h->length -= 1; \
+} while (0)
 
 void *da_alloc(size_t bytes, void *context);
 void *da_free(size_t bytes, void *ptr, void *context);
