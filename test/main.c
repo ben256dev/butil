@@ -3,13 +3,7 @@
 
 int main(int argc, char* argv[])
 {
-	Allocator alloc = {
-        .alloc   = da_alloc,
-        .free    = da_free,
-        .context = NULL,
-    };
-
-	float *my_array = array(float, &alloc);
+	float *my_array = array(float);
 	array_append(my_array, 1.0f);
 	array_append(my_array, 2.0f);
 	array_append(my_array, 3.0f);

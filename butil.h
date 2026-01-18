@@ -93,54 +93,47 @@ static inline char *xstrdup(const char *s)
 /* Dynamic Array header idea from Dylan Falconer:
    [bytesbeneath](https://www.bytesbeneath.com/p/dynamic-arrays-in-c) */
 typedef struct {
-	void *(*alloc) (size_t bytes, void *context);
-	void *(*free)  (size_t bytes, void *ptr, void *context);
-	void *context;
-} Allocator;
-
-typedef struct {
 	size_t    length;
 	size_t    capacity;
 	size_t    padding;
- 	Allocator *a;
+	size_t    item_size;
 } Array_Header;
+
+typedef void *(*Array_Realloc_Fun)(void *data, size_t src_bytes, size_t dst_bytes);
+
+static void *array_default_realloc(void *data, size_t src_bytes, size_t dst_bytes);
+static Array_Realloc_Fun array_realloc_fun = array_default_realloc;
+
+static inline Array_Header *array_header(void *a)
+{
+    return (Array_Header *)a - 1;
+}
 
 #define ARRAY_INITIAL_CAPACITY 16
 
-#define array(T, a) array_init(sizeof(T), ARRAY_INITIAL_CAPACITY, a)
-#define array_header(a) ((Array_Header *)(a) - 1)
+#define array(T) ((T *)array_init(sizeof(T), ARRAY_INITIAL_CAPACITY))
 #define array_length(a) (array_header(a)->length)
 #define array_capacity(a) (array_header(a)->capacity)
-#define array_remove_unordered(a, i) do { \
-    Array_Header *h = array_header(a); \
-    if (i == h->length - 1) { \
-        h->length -= 1; \
-    } else if (h->length > 1) { \
-        void *ptr = &a[i]; \
-        void *last = &a[h->length - 1]; \
-        h->length -= 1; \
-        memcpy(ptr, last, sizeof(*a)); \
-    } \
-} while (0);
-#define array_remove_unordered(a, i) do { \
-    Array_Header *h = array_header(a); \
-    if (i == h->length - 1) { \
-        h->length -= 1; \
-    } else if (h->length > 1) { \
-        void *ptr = &a[i]; \
-        void *last = &a[h->length - 1]; \
-        h->length -= 1; \
-        memcpy(ptr, last, sizeof(*a)); \
-    } \
-} while (0);
-#define array_pop_back(a) (array_header(a)->length -= 1)
+
+#define array_pop_back(a) do { \
+    array_header(a)->length -= 1; \
+} while (0)
 
 #define array_append(a, v) ( \
-	(a) = (array_ensure_capacity)(a, 1, sizeof(v)), \
+	(a) = array_ensure_capacity((a), 1), \
 	(a)[array_header(a)->length] = (v), \
-	&(a)[array_header(a)->length++])
+	&(a)[array_header(a)->length++]) \
 
-#define array_foreach(Type, el, array) for (float *it = array, el = *array; it < array + array_length(array) && (el = *it, 1); ++it)
+#define array_remove_unordered(a, i) do { \
+    Array_Header *h = array_header(a); \
+    size_t _i = (size_t)(i); \
+    if (_i >= h->length) break; \
+    size_t _last = h->length - 1; \
+    if (_i != _last) { \
+        (a)[_i] = (a)[_last]; \
+    } \
+    h->length -= 1; \
+} while (0)
 
 #define array_remove(a, i) do { \
     Array_Header *h = array_header(a); \
@@ -152,63 +145,85 @@ typedef struct {
     h->length -= 1; \
 } while (0)
 
-void *da_alloc(size_t bytes, void *context);
-void *da_free(size_t bytes, void *ptr, void *context);
-void *array_init(size_t item_size, size_t capacity, Allocator *a);
-void *array_ensure_capacity(void *a, size_t item_count, size_t item_size);
+/* foreach macro idea comes from tsoding's implementation in his [nob.h](https://github.com/tsoding/nob.h) library */
+#define array_foreach_ptr(Type, it, arr) \
+    for (Type *it = (arr); (arr) && it < (arr) + array_length(arr); ++it)
+
+#define array_foreach_const(Type, it, arr) \
+    for (const Type *it = (arr); (arr) && it < (arr) + array_length(arr); ++it)
+
+#define array_foreach(Type, el, array) for (Type *it = array, el = *array; it < array + array_length(array) && (el = *it, 1); ++it)
+
+void array_set_realloc(Array_Realloc_Fun fun_ptr);
+void *array_init(size_t item_size, size_t capacity);
+void array_free(void *a);
+void *array_ensure_capacity(void *a, size_t item_count);
 
 #ifdef BUTIL_IMPLEMENTATION
-void *da_alloc(size_t bytes, void *context) {
-	(void)context;
-	return xmalloc(bytes);
+static void *array_default_realloc(void *data, size_t src_bytes, size_t dst_bytes)
+{
+    (void)src_bytes;
+
+    if (dst_bytes == 0) {
+        free(data);
+        return NULL;
+    }
+
+    if (!data)
+        return xmalloc(dst_bytes);
+
+    return xrealloc(data, dst_bytes);
 }
 
-void *da_free(size_t bytes, void *ptr, void *context) {
-	(void)ptr; (void)context;
-	free(ptr);
+void array_set_realloc(Array_Realloc_Fun fun_ptr)
+{
+    array_realloc_fun = fun_ptr ? fun_ptr : array_default_realloc;
 }
 
-void *array_init(size_t item_size, size_t capacity, Allocator *a) {
-	void *ptr       = 0;
-	size_t size     = item_size * capacity + sizeof(Array_Header);
-	Array_Header *h = a->alloc(size, a->context);
+void *array_init(size_t item_size, size_t capacity)
+{
+    if (capacity == 0) capacity = 1;
 
-	if (h) {
-		h->capacity = capacity;
-		h->length   = 0;
-		h->a        = a;
-		ptr         = h + 1;
-	}
+    size_t bytes = sizeof(Array_Header) + item_size * capacity;
+    Array_Header *h = array_realloc_fun(NULL, 0, bytes);
+    if (!h) return NULL;
+
+    h->length = 0;
+    h->capacity = capacity;
+    h->item_size = item_size;
+
+    return (void *)(h + 1);
 }
 
-void *array_ensure_capacity(void *a, size_t item_count, size_t item_size) {
-	Array_Header *h = array_header(a);
-	size_t desired_capacity = h->length + item_count;
+void array_free(void *a)
+{
+    if (!a) return;
 
-	if (h->capacity < desired_capacity) {
-		size_t new_capacity = h->capacity * 2;
-		while (new_capacity < desired_capacity) {
-			new_capacity *= 2;
-		}
+    Array_Header *h = array_header(a);
+    size_t old_bytes = sizeof(Array_Header) + h->item_size * h->capacity;
+    array_realloc_fun(h, old_bytes, 0);
+}
 
-		size_t new_size = sizeof(Array_Header) + new_capacity * item_size;
-		Array_Header *new_h = h->a->alloc(new_size, h->a->context);
+void *array_ensure_capacity(void *a, size_t item_count)
+{
+    Array_Header *h = array_header(a);
+    size_t desired = h->length + item_count;
 
-		if (new_h) {
-			size_t old_size = sizeof(*h) + h->length * item_size;
-			memcpy(new_h, h, old_size);
+    if (h->capacity >= desired)
+        return a;
 
-			if (h->a->free) {
-				h->a->free(old_size, h, h->a->context);
-			}
+    size_t new_capacity = h->capacity ? h->capacity : 1;
+    while (new_capacity < desired)
+        new_capacity *= 2;
 
-			new_h->capacity = new_capacity;
-			h = new_h + 1;
-		} else {
-			h = 0;
-		}
-	} else { h += 1; }
+    size_t old_bytes = sizeof(Array_Header) + h->item_size * h->capacity;
+    size_t new_bytes = sizeof(Array_Header) + h->item_size * new_capacity;
 
-	return h;
+    Array_Header *new_h = array_realloc_fun(h, old_bytes, new_bytes);
+    if (!new_h)
+        return NULL;
+
+    new_h->capacity = new_capacity;
+    return (void *)(new_h + 1);
 }
 #endif
