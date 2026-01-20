@@ -146,13 +146,15 @@ static inline Array_Header *array_header(void *a)
 } while (0)
 
 /* foreach macro idea comes from tsoding's implementation in his [nob.h](https://github.com/tsoding/nob.h) library */
-#define array_foreach_ptr(Type, it, arr) \
-    for (Type *it = (arr); (arr) && it < (arr) + array_length(arr); ++it)
+#define array_foreach_ptr(el, arr) \
+    for (__typeof__(arr) it = arr, el; it < arr + array_length(arr) && (el = it, 1); ++it) \
 
-#define array_foreach_const(Type, it, arr) \
-    for (const Type *it = (arr); (arr) && it < (arr) + array_length(arr); ++it)
+#define array_foreach_const(el, arr) \
+    for (const __typeof__(*arr) *it = arr; it < arr + array_length(arr); ++it) \
+		for (const __typeof__(*arr) const *el = it, *loop = (void*)1; loop; loop = 0)
 
-#define array_foreach(Type, el, array) for (Type *it = array, el = *array; it < array + array_length(array) && (el = *it, 1); ++it)
+#define array_foreach(el, arr) \
+    for (__typeof__(*arr) *it = arr, el = *arr; it < arr + array_length(arr) && (el = *it, 1); ++it)
 
 void array_set_realloc(Array_Realloc_Fun fun_ptr);
 void *array_init(size_t item_size, size_t capacity);
