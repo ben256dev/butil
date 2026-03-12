@@ -91,7 +91,7 @@ static inline char *xstrdup(const char *s)
 #endif
 
 /* Dynamic Array header idea from Dylan Falconer:
-   [bytesbeneath](https://www.bytesbeneath.com/p/dynamic-arrays-in-c) */
+ * [bytesbeneath](https://www.bytesbeneath.com/p/dynamic-arrays-in-c) */
 typedef struct {
 	size_t    length;
 	size_t    capacity;
@@ -145,7 +145,8 @@ static inline Array_Header *array_header(void *a)
     h->length -= 1; \
 } while (0)
 
-/* foreach macro idea comes from tsoding's implementation in his [nob.h](https://github.com/tsoding/nob.h) library */
+/* foreach macro idea comes from tsoding's implementation in his
+ * [nob.h](https://github.com/tsoding/nob.h) library */
 #define array_foreach_ptr(el, arr) \
     for (__typeof__(arr) it = arr, el; it < arr + array_length(arr) && (el = it, 1); ++it) \
 
@@ -192,6 +193,7 @@ void *array_init(size_t item_size, size_t capacity)
 
     h->length = 0;
     h->capacity = capacity;
+    h->padding = 0;
     h->item_size = item_size;
 
     return (void *)(h + 1);
